@@ -39,6 +39,12 @@
             h1 {
                 margin-bottom: 40px !important;
             }
+            .green {
+                color: green;
+            }
+            .red {
+                color: red;
+            }
         </style>
 	</head>
 
@@ -341,6 +347,366 @@ key		msqid	  owner	  perms	  used-bytes   messages
     <script type="text/template">
     ## Storage Options
     ![storage_options](images/storage_options.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Docker Hub
+    ![dockerhub](images/dockerhub.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## What about Docker Hub?
+
+    - Docker is a very powerful tool on CLI
+    - Becomes even more useful through network effects when you can use other peoples' images and vice versa
+    - Pull and push mechanic similar to what you are familiar with from DVCS
+    - Docker Hub provides a central index with:
+         - Verified and maintained "base images" for building other images (everything from Ubuntu to Node.js to Redis etc.)
+         - Paid private repositories if you don't want to share your images with the world
+         - Helpful features such as automated builds and webhooks
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Automated Build
+    
+    - Trigger re-build of image based on Dockerfile in git repository (Github or Bitbucket)
+
+    ![automatedbuild](images/automatedbuild.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Web Hooks & Build Triggers
+    
+    - Trigger actions (e.g. run test suite in CI) when build is complete on Docker Hub etc.
+
+    ![webhooks](images/webhooks.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Running Docker in production
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Building and distributing images
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Building images with Dockerfiles
+
+    - Provides a way to sum up the steps to take to build an image.  Once image is built, we can move it around and run it wherever we want.
+
+```
+FROM ubuntu:14.04
+MAINTAINER Docker Education Team <education@docker.com>
+
+RUN apt-get update
+RUN apt-get install -y nginx
+RUN echo 'Hi, I am in your container' \
+			>/usr/share/nginx/html/index.html
+
+CMD [ "nginx", "-g", "daemon off;" ]
+EXPOSE 80
+```
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Building images with Dockerfiles
+
+    - Great for most purposes
+         - Caching system allows full rebuilds that are still fast
+    - Drawbacks (currently being worked on)
+         - No separate build/run environments (don't ship a 5GB build image if you just need the 10MB artifact)
+         - Entitlement, credentials, and other secrets (what if the build process needs to access a private repository?)
+    - Workarounds
+         - Use *two* Dockerfiles, keep Dockerfiles and images private
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Image distribution (safe)
+
+    - Docker Hub
+         - `docker push` and `docker pull` just work without fiddling
+         - Both public and private images
+         - Drawback: no "On Premise" version, however this is one of the most requested features so expect to see it in the future
+    - Open Source Registry
+         - `docker run registry` (use `-P` option to expose it on LAN)
+         - Defaults to local storage
+         - Can use cloud storage (Swift, GCE, S3, Elliptics...)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Image distribution (hacky)
+    - Hack around with `docker load`/`save`
+         - Load/save works with plain tarballs
+         - Put images wherever you want them
+         - [Dogestry](https://github.com/black-education/dogestry) available to do things this way (works with S3 too)
+              - Disadvantage: very hacky, not officially condoned
+    - Work in progress: pluggable transports
+         - Many things are *very good* at moving diffs (git, rsync, etc.)
+         - Can we learn something from them and bring it into Docker?
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Service discovery
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Service discovery - let me count the ways
+    
+    - Use environment variables in our containers
+         - `docker run -e DB_HOST=... -e DB_PORT=... -e ...`
+    - Bind-mount a configuration file in the container
+         - `docker run -v /etc/docker/config/myapp.yaml:/config.yaml...`
+    - Resolve everything through a highly-available key-value store
+         - Zookeeper, etcd, Consul, etc.
+    - Resolve everything we need through DNS
+         - Consul, SkyDNS, Skydock, dnsmasq, etc.
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Let's take a look at the different methods and "grade" them.
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # links
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## links / environment variables
+
+    - Use `docker run --link` option to populate environment variables in a container to provide address, port, etc. of a process in another container.
+         - `docker run -d --name frontdb mysqlimage`
+         - `docker run -d --name web --link frontdb:sql webimage`
+    - Environment variables injected into second container (`web`):
+```
+SQL_PORT=tcp://172.17.0.10:5432
+SQL_PORT_5432_TCP=tcp://172.17.0.10:5432
+SQL_PORT_5432_TCP_ADDR=172.17.0.10
+SQL_PORT_5432_TCP_PORT=5432
+SQL_PORT_5432_TCP_PROTO=tcp
+```
+    - Doesn't work across Docker hosts
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## links / environment variables
+
+    - <span class="green">+</span> Easy to integrate in your code
+         - Environment variable support is quite ubiquitous
+    - <span class="green">+</span> Easy to setup
+         - Start services, lookup ports, inject variables
+    - <span class="green">+</span> Even easier with links
+         - Fully automatic
+    - <span class="red">-</span> Static
+         - If a service moves, cannot update environment variables (without restarting container)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # links grade:
+    # B
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # bind-mount configuration file
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## bind-mount configuration file
+    - <span class="green">+</span> Easy to integrate in your code
+         - Not many languages without decent JSON/YAML parser
+    - <span class="green">+</span> Easy to setup
+         - Just like environment variables, but generate a file
+    - <span class="green">+</span> Kind of dynamic
+         - It's possible to update the configuration while the services run
+    - <span class="red">-</span> But not really
+         - Services have to detect the change and reload the file
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # bind-mounting configuration file grade:
+    # B
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## key-value store
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## key-value store
+
+    - <span class="green">+</span> Harder to integrate in your code
+         - HTTP requests instead of getenv are not too hard, but are still more overhead
+    - <span class="green">+</span> Harder to setup
+         - Must setup the key-value store, on multiple nodes
+    - <span class="green">+</span> Kind of dynamic
+         - Most of the key-value stores support a "watch" operation
+    - <span class="red">-</span> But not really
+         - Services *still* have to detect a change and reload
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # key-value store grade:
+    # D
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # DNS
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## DNS
+
+    - <span class="green">+</span> Easy to integrate in your code
+         - No integration needed; "Just Works"
+    - <span class="red">-</span> Harder to setup
+         - Must setup a DNS system that you can easily update
+    - <span class="green">+</span> Dynamic
+         - Updating DNS zones is no problem
+    - No "push", but...
+         - services won't detect a change, but if something wrong happens (and results in a disconnection) they might re-resolve and retry
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # DNS grade:
+    # C
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Are we doomed?
+    ![hammer](images/hammer.jpg)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Let's look at another way of using links.
+    ![link](images/link.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## The ambassador pattern
+    
+    host 1 (database)
+<pre>
+docker run -d --name frontdb mysqlimage
+docker run -d --link frontdb:sql wiring
+</pre>
+    host 2 (web tier)
+<pre>
+docker run -d --name frontdb wiring
+docker run -d --link frontdb:sql nginximage
+</pre>
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ![amb1](images/ambassador_diagram_1.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # What's with the "?"
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ![amb2](images/ambassador_diagram_2.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Magic?
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Nope... Unicorns.
+    ![unicorn](images/unicorn.jpg)
+    <!-- .element: class="fragment" data-fragment-index="1" -->
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Tell me more about these... Unicorns.
+
+    - Constant work in progress, cool projects to check out:
+         - [Docksul](https://github.com/progrium/docksul)
+         - [Grand Ambassador](https://github.com/cpuguy83/docker-grand-ambassador)
+    - Or roll your own.
+         - Could use a highly-available key-value store
+         - HAProxy, stunnel, iptables
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## links with ambassadors
+    - <span class="green">+</span> Easy to integrate in your code
+         - Still just environment variables
+    - <span class="green">+</span> Easy to setup in dev, harder in production
+         - Use normal links in dev; get the big guns out in prod
+    - <span class="green">+</span> Dynamic
+         - The ambassadors can reroute traffic if neccessary
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Ambassadors grade:
+    # A
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # But warning:
+    # Construction Area
+    ![construction](images/construction.gif)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # What about orchestration?
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
     </script>
 </section>
 <section data-markdown>
