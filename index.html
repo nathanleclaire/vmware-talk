@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+    <title>docker @ vmware</title>
+
+    <meta name="description" content="A presentation about Docker.">
+		<meta name="author" content="James Turnbull">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.min.css">
+		<link rel="stylesheet" href="css/theme/simple.css" id="theme">
+
+		<!-- For syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- If the query includes 'print-pdf', use the PDF print sheet -->
+		<script>
+			document.write( '<link rel="stylesheet" href="css/print/' + ( window.location.search.match( /print-pdf/gi ) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">' );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+        <style>
+            .tiny {
+                font-size: 20px !important;
+                margin-top: 10px;
+            }
+            #boids {
+                margin-top: 10px;
+            }
+            h1 {
+                margin-bottom: 40px !important;
+            }
+        </style>
+	</head>
+
+	<body>
+
+<div class="reveal">
+
+<!-- Any section element inside of this container is displayed as a slide -->
+<div class="slides">
+<section data-markdown>
+    <script type="text/template">
+    ## hello to
+    ![vmware](images/vmware.png)
+    ## from
+    ![docker](images/docker.png)
+    <div class="tiny">presenters:  [Jérôme Petazzoni](http://twitter.com/jpetazzo) and [Nathan LeClaire](http://nathanleclaire.com)</div>
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Welcome!
+
+    - We really appreciate you being here
+    - Today we're going to look at:
+         - Introduction to the Docker engine and platform, including juicy technical details
+         - More advanced Docker topics such as running it in production
+         - Docker orchestration
+         - Docker tie-ins with VMware
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Who is Jérôme?
+    ![jerome](images/jerome.jpg)
+
+    - Senior Engineer at Docker rotating between Ops, Support, and Evangelism
+    - Lots of great operations experience: Running dotCloud PaaS, building giant Xen clouds, putting all kinds of weird stuff in containers, etc.
+    - *Will* replace you with a very small shell script if he is grumpy
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Who is Nathan?
+    ![nathan](images/nathan.jpg)
+
+    - Solutions Engineer at Docker with similar rotating cast of duties
+    - Interested in distributed systems and machine learning, but keeps getting sidetracked writing web applications
+    - Loves writing, music, and avocados
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Let's start with some questions!
+
+    - Raise your hand if you've:
+         - Heard of Docker 
+         <!-- .element: class="fragment" data-fragment-index="1" -->
+         - Tried Docker online tutorial
+         <!-- .element: class="fragment" data-fragment-index="2" -->
+         - Installed/tried Docker binary
+         <!-- .element: class="fragment" data-fragment-index="3" -->
+         - Used Docker Hub
+         <!-- .element: class="fragment" data-fragment-index="4" -->
+         - Run Docker in development/QA/production
+         <!-- .element: class="fragment" data-fragment-index="5" -->
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # What is Docker and why does it matter?
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## What is it?
+
+    - Platform for building, shipping, and running applications in Linux Containers.
+         - *"Engine"* is the binary that you interact with on the command line and deals mostly with: building applications and running them (some technical details on this in a moment).
+         - *"Hub"* is the Docker Hub website ([hub.docker.com](https://hub.docker.com)) and deals with community / social aspects, image distribution, and some cool features such as automatic building of images on push to Github.
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Why?
+    - Deploy everything with lots of control and flexiblity.
+         - Webapps
+         - Databases
+         - Big data, etc.
+    - Provides nice process isolation abstraction that plays well with others.
+         - Loves both VMs and bare metal
+         - Can use configuration management tools if you like them, or not - your choice
+         - Escape dependency hell and non-repeatability
+    - Leverage enthusiastic, fast-growing OSS community
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## OK, how does it work?
+    - Takes advantage of containerization technology, providing lots of UX niceness on top of features borrowed from or inspired by:
+         - FreeBSD jails
+         - chroot
+         - Solaris Zones
+         - OpenVZ
+    - Containers share kernel with host, and in some cases bin/libs
+    - Originally used only [LXC](https://linuxcontainers.org/) under the hood, now there is a swappable "exec-driver" and the default is a Go-based implementation called libcontainer
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Let's look under the hood a bit.
+    ![hood](images/underthehood.jpg)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## How do containers work ?
+
+    - *namespaces* isolate processes
+         - pid
+         - mnt
+         - net
+         - uts
+         - ipc
+    - *cgroups* control resources
+         - memory
+         - cpu
+         - blkio
+         - devices
+    - Copy-on-write storage for efficient disk usage
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## *namespaces* isolate processes
+     - pid
+     - mnt
+     - net
+     - uts
+     - ipc
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## namespaces: `pid`
+```
+jpetazzo@tarrasque:~$ ps aux | wc -l
+212
+jpetazzo@tarrasque:~$ sudo docker run -t -i ubuntu bash 
+root@ea319b8ac416:/# ps aux | wc -l
+2
+```
+
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## namespaces: `mnt`
+```
+jpetazzo@tarrasque:~$ wc -l /proc/mounts
+32 /proc/mounts
+jpetazzo@tarrasque:~$ sudo docker run -t -i ubuntu bash 
+root@ea319b8ac416:/# wc -l /proc/mounts
+10 /proc/mounts
+```
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## namespaces: `net`
+```sh
+root@ea319b8ac416:/# ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN 
+	link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00 
+	inet 127.0.0.1/8 scope host lo
+		valid_lft forever preferred_lft forever 
+	inet6 ::1/128 scope host
+		valid_lft forever preferred_lft forever
+22: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000 
+	link/ether 2a:d1:4b:7e:bf:b5 brd ff:ff:ff:ff:ff:ff
+		inet 10.1.1.3/24 brd 10.1.1.255 scope global eth0
+			valid_lft forever preferred_lft forever 
+		inet6 fe80::28d1:4bff:fe7e:bfb5/64 scope link 
+			valid_lft forever preferred_lft forever
+```
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## namespaces: `uts`
+```sh
+jpetazzo@tarrasque:~$ hostname
+tarrasque
+root@ea319b8ac416:/# hostname
+ea319b8ac416
+```
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## namespaces: `ipc`
+<pre>
+~$ ipcs
+IPC status from <running system> as of Wed Jul 30 17:29:34 PDT 2014
+T	 ID	 KEY		MODE	   OWNER	GROUP
+Message Queues:
+
+T	 ID	 KEY		MODE	   OWNER	GROUP
+Shared Memory:
+
+T	 ID	 KEY		MODE	   OWNER	GROUP
+Semaphores:
+
+~$ docker run -it ubuntu /bin/bash
+root@bc0b659b40bf:/# ipcs
+
+------ Shared Memory Segments --------
+key		shmid	  owner	  perms	  bytes	  nattch	 status
+
+------ Semaphore Arrays --------
+key		semid	  owner	  perms	  nsems
+
+------ Message Queues --------
+key		msqid	  owner	  perms	  used-bytes   messages
+
+</pre>
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## namespaces: `user`
+
+    - No demo, currently being integrated into Docker
+         - UID 0 => 1999 in container C1 is mapped to UID 10000 => 11999 in host
+         - UID 0 => 1999 in container C2 is mapped to UID 12000 => 13999 in host, and so on
+    - Adds one extra layer of security
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## `cgroups` control resource usage
+     - memory
+     - cpu
+     - blkio
+     - devices
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## cgroups: `memory`
+    - Keeps track pages used by each group:
+         - file (read/write/mmap from block devices; swap) 
+         - anonymous (stack, heap, anonymous mmap) 
+         - active (recently accessed)
+         - inactive (candidate for eviction)
+    - Each page is charged to a group
+    - Pages can be shared (e.g. if you use any copy-on-write filesystem)
+    - Individual (per-cgroup) limits and out-of-memory killer
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## cgroups: `cpu` and `cpuset`
+    - Keep track of user/system CPU time
+    - Set relative weight per group
+    - Pin groups to specific CPU(s)
+        - Can be used to reserve CPUs for some apps
+        - This is also relevant for big NUMA systems
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## cgroups: `blkio`
+    - Keep track of IO for each block device
+         - read vs. write; sync vs. async
+    - Set relative weights
+    - Set throttle (limits) for each block device
+         - read vs. write; bytes/sec. vs. operations/sec.
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## cgroups: `devices`
+    - Controls read/write/mknod permissions
+    - Typically:
+         - allow: `/dev/{tty,zero,random,null}...`
+         - deny: everything else
+         - maybe: `/dev/net/tun`, `/dev/fuse`, `/dev/kvm`, `/dev/dri`...
+    - Fine-grained control for GPU, virtualization etc.
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Copy-on-write storage
+    - Create a new machine instantly instead of copying its whole filesystem
+    - Storage keeps track of what has changed
+    - Multiple storage plugins available (AUFS, device mapper, BTRFS, VFS...)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    ## Storage Options
+    ![storage_options](images/storage_options.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+        ## That's all folks.  Go forth and Dockerize!
+
+        - Github: [github.com/docker/libswarm](https://github.com/docker/libswarm)
+        - Contact me : 
+            - [nathan@docker.com](mailto:nathan@docker.com)
+            - `nathanleclaire` on IRC 
+            - [nathanleclaire](https://github.com/nathanleclaire) on Github
+        - Join us on :
+            - `#docker` and `#docker-dev` on IRC  (Freenode)
+            - `#libcontainer` and `#libswarm` on IRC (Freenode)
+    </script>
+</section>
+</div>
+</div>
+<script src="lib/js/head.min.js"></script>
+<script src="js/reveal.min.js"></script>
+<script>
+    // Full list of configuration options available here:
+    // https://github.com/hakimel/reveal.js#configuration
+    Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+
+        theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+        transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+            { src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+            { src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+            { src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+            { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+            { src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+            { src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+            // { src: 'plugin/search/search.js', async: true, condition: function() { return !!document.body.classList; } }
+            // { src: 'plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+        ]
+    });
+</script>
+
+</body>
+</html>
