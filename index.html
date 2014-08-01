@@ -45,10 +45,18 @@
             .red {
                 color: red;
             }
+            div.watermark {
+                position: absolute;
+                bottom: 32px;
+                left: 32px;
+            }
         </style>
-	</head>
+  </head>
 
-	<body>
+  <body>
+<div class="watermark">
+  <img src="images/watermark.png"></img>
+</div>
 
 <div class="reveal">
 
@@ -69,7 +77,7 @@
 
     - We really appreciate you being here
     - Today we're going to look at:
-         - Introduction to the Docker engine and platform, including juicy technical details
+         - Introduction to the Docker Engine and Docker Hub, including juicy technical details
          - More advanced Docker topics such as running it in production
          - Docker orchestration
          - Docker tie-ins with VMware
@@ -362,10 +370,11 @@ key		msqid	  owner	  perms	  used-bytes   messages
     - Docker is a very powerful tool on CLI
     - Becomes even more useful through network effects when you can use other peoples' images and vice versa
     - Pull and push mechanic similar to what you are familiar with from DVCS
-    - Docker Hub provides a central index with:
+    - Docker Hub provides a central Registry with:
          - Verified and maintained "base images" for building other images (everything from Ubuntu to Node.js to Redis etc.)
          - Paid private repositories if you don't want to share your images with the world
          - Helpful features such as automated builds and webhooks
+         - User authentication and authorization
     </script>
 </section>
 <section data-markdown>
@@ -384,6 +393,11 @@ key		msqid	  owner	  perms	  used-bytes   messages
     - Trigger actions (e.g. run test suite in CI) when build is complete on Docker Hub etc.
 
     ![webhooks](images/webhooks.png)
+    </script>
+</section>
+<section data-markdown>
+    <script type="text/template">
+    # Demo
     </script>
 </section>
 <section data-markdown>
